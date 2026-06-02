@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audit SMQSE v2.2 — Laurenty</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { min-height: 100%; background: #02040a; }
+    body { font-family: 'DM Sans', system-ui, sans-serif; }
+    button, input, textarea, select { font-family: inherit; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #030712; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.25s ease forwards; }
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print, aside, nav { display: none !important; }
+      .card { background: white !important; border: 1px solid #ccc !important; break-inside: avoid; }
+    }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+// ═══════════════════════════════════════════════════════════════════
+// CHECKLIST LAURENTY — Références QM-QM-01 & OP-SAL-01
+// ═══════════════════════════════════════════════════════════════════
+
+const CHECKLIST_DATA = [
+  {
+    chapter: 1,
+    title: "Domaine & Périmètre d'application",
+    ref: "QM-QM-01 §1.1.3",
+    process: ["QSE"],
+    responsible: "HQSE / QSEM",
+    points: [
+      { id: "1.1", text: "Le site est compris dans le périmètre des certifications ISO 9001/14001/45001 et VCA** — tableau périmètre QM-QM-01 §1.1.3 à jour" }
+    ]
+  },
+  {
+    chapter: 4,
+    title: "Contexte de l'organisme",
+    ref: "QM-QM-01 §1.1 / §1.2",
+    process: ["QSE"],
+    responsible: "HQSE / QSEM",
+    points: [
+      { id: "4.1.1", text: "Analyse de contexte disponible et revue annuellement par le QSEM — QM-QM-01 §1.1.1" },
+      { id: "4.1.2", text: "Enjeux internes et externes (analyse SWOT) déterminés — QM-QM-01 §1.1.1" },
+      { id: "4.1.3", text: "Enjeux surveillés et revus (révision annuelle QSEM) — QM-QM-01 §1.1.1" },
+      { id: "4.2.1", text: "Parties intéressées identifiées (clients, travailleurs, partenaires sociaux, fournisseurs, autorités réglementaires) — QM-QM-01 §1.1.2" },
+      { id: "4.2.2", text: "Exigences des parties intéressées déterminées et revues annuellement par le QSEM — QM-QM-01 §1.1.2" },
+      { id: "4.3.1", text: "Domaine d'application conforme au tableau périmètre UTE — QM-QM-01 §1.1.3" },
+      { id: "4.3.2", text: "Domaine d'application intègre obligations de conformité et exigences parties intéressées — QM-QM-01 §1.1.3" },
+      { id: "4.3.3", text: "Domaine d'application disponible sous forme d'information documentée — QM-QM-01 §1.1.3" },
+      { id: "4.4.1", text: "Cartographie des processus définie avec critères, méthodes et responsabilités — QM-QM-01 §1.2 (Plans QSE §2.1.1)" },
+      { id: "4.4.2", text: "Risques/opportunités et amélioration SMQSE documentés et revus — QM-QM-01 §1.1.2 / Plans QSE §2.1.1" }
+    ]
+  },
+  {
+    chapter: 5,
+    title: "Leadership",
+    ref: "QM-QM-01 §1.2.1",
+    process: ["QSE", "Operations", "HR"],
+    responsible: "Co.Dir / BD / HOO",
+    points: [
+      { id: "5.1.1", text: "Politique QSE approuvée par Co.Dir, à jour (diffusion Avril 2024), communiquée et appliquée — QM-QM-01 §1.2.1 / §6.5.1" },
+      { id: "5.2.1", text: "Consultation et participation des travailleurs — modalités CPPT, temps, formation et ressources prévus — QM-QM-01 §1.2.1" },
+      { id: "5.2.2", text: "Accès aux informations SMQSE via intranet / bibliothèque documentaire, obstacles à la participation levés — QM-QM-01 §1.2.5" }
+    ]
+  },
+  {
+    chapter: 6,
+    title: "Planification",
+    ref: "QM-QM-01 §2.1 / Plans QSE",
+    process: ["QSE", "Operations", "HR", "Sales", "Procurement"],
+    responsible: "HQSE / QSEM / OD",
+    points: [
+      { id: "6.1.1", text: "Risques et opportunités définis et planifiés — QM-QM-01 §1.1.2 / Plans QSE opérationnel §2.1.1" },
+      { id: "6.1.2", text: "Évaluation des actions face aux risques et opportunités réalisée — QM-QM-01 §1.1.2" },
+      { id: "6.2.1", text: "Aspects environnementaux documentés — conditions anormales et situations d'urgence prises en compte — QM-QM-01 §2.1 / Plans QSE opérationnel EV-BAL" },
+      { id: "6.3.1", text: "Identification des dangers — organisation du travail, activités hab./inhab., événements indésirables — Plans QSE opérationnel §2.1 (Analyse de risques préalable : AM + PA)" },
+      { id: "6.3.2", text: "Identification des dangers — personnes, modifications, évolution des connaissances — QM-QM-01 §1.2.1 / PSSE signé PA" },
+      { id: "6.4.1", text: "Évaluation des risques SSE réalisée — Liste de contrôle des risques SSE remplie et signée PA (OP-SAL-01 §2.1.3)" },
+      { id: "6.5.1", text: "Obligations de conformité légale BE déterminées, applicables, mises à jour — QM-QM-01 §1.2.1 / Veille réglementaire QSEM" },
+      { id: "6.6.1", text: "Planification d'actions pour aspects significatifs, conformité, risques/opportunités — Plans QSE commercial + opérationnel §2.1.1" },
+      { id: "6.7.1", text: "Objectifs QSE définis annuellement, mesurables, communiqués — QM-QM-01 §1.2.1 / Revue de direction §5.1.3" },
+      { id: "6.8.1", text: "Planification des actions — responsables, ressources, échéances et évaluation définis — Plans QSE §2.1.1 (pilote OD)" }
+    ]
+  },
+  {
+    chapter: 7,
+    title: "Support",
+    ref: "QM-QM-01 §3.1 / §3.2",
+    process: ["HR", "Operations", "QSE"],
+    responsible: "HOO / HRD / QSEM",
+    points: [
+      { id: "7.1.1", text: "Ressources humaines suffisantes — QM-QM-01 §3.1.1 (plan de formation par fonction, logiciel traçabilité formations)" },
+      { id: "7.1.2", text: "Infrastructures suffisantes — procédures achats/stockage/maintenance matériel — QM-QM-01 §3.1.2 (pilote PM)" },
+      { id: "7.2.1", text: "Environnement de travail approprié (CPPT, bien-être, psychosocial) — QM-QM-01 §3.1.3 / §1.2.1" },
+      { id: "7.3.1", text: "Compétences SMQSE décrites (desc. fonctions HR), évaluées (Perfor/ESS), fournies (STM/T&AM) et enregistrées — QM-QM-01 §3.1.1" },
+      { id: "7.4.1", text: "Sensibilisation : brochure d'accueil, TBM chantiers, formations de base OPS dans les 10 jours — QM-QM-01 §3.1.3" },
+      { id: "7.5.1", text: "Communications planifiées — réunions Co.Dir, réunions semestrielles BD/Co.Dir, réunions trimestrielles HOO et PA — QM-QM-01 §1.2.5" },
+      { id: "7.5.2", text: "Communication interne via intranet, TBM terrain (LH→OPS), réunions encadrement — QM-QM-01 §1.2.5" },
+      { id: "7.5.3", text: "Communication externe : réclamations via LaurentyClaim, offres commerciales, rapports client — OP-SAL-01 §4.1" },
+      { id: "7.6.1", text: "Informations documentées gérées via bibliothèque digitale intranet — QM-QM-01 §3.2 (QM / OP / SP / WI) — durée d'archivage §6.4" }
+    ]
+  },
+  {
+    chapter: 8,
+    title: "Réalisation des activités opérationnelles",
+    ref: "QM-QM-01 §4.1 / OP-SAL-01",
+    process: ["Sales", "Operations", "Procurement"],
+    responsible: "OD / BD / HOO / AM",
+    points: [
+      { id: "8.1.1", text: "Planification opérationnelle via Plans QSE (commercial, opérationnel, LV-TI, EV-BAL) — QM-QM-01 §2.1.1 / OP-SAL-01 §2.1.3" },
+      { id: "8.2.1", text: "Élimination des dangers — hiérarchie de maîtrise appliquée (EPC → EPI) — QM-QM-01 §1.2.1 / PSSE signé PA" },
+      { id: "8.3.1", text: "Pilotage du changement — avenants contrats validés BD (OP-SAL-01 §2.1.9), modifications SMQSE en revue de direction" },
+      { id: "8.4.1", text: "Maîtrise prestataires externes — sélection/évaluation annuelle fournisseurs et sous-traitants par PM/HOO — QM-QM-01 §3.1.2 / §4.1.3" },
+      { id: "8.5.1", text: "Situations d'urgence — rapport situation d'urgence (archivage 3 ans HOO) — QM-QM-01 §6.4" },
+      { id: "8.6.1", text: "Communication client — LaurentyClaim (réclamations), RPS, cartes de prestation, planning commercial — OP-SAL-01 §4.1 / QM-QM-01 §4.1.5" },
+      { id: "8.7.1", text: "Exigences services — légales, réglementaires (CCT 121, Loi Bien-être), capacité à répondre aux réclamations — OP-SAL-01 §2.1.3" },
+      { id: "8.8.1", text: "Revue des exigences — visite sur place, cahier des charges, exigences légales, modifications documentées fiche facturation — OP-SAL-01 §2.1.3 / §3.1.1" },
+      { id: "8.9.1", text: "Développement des services — devis technique (métrés, normes UGBN, planning commercial), fiche SSE, fiche facturation — OP-SAL-01 §2.1.3" },
+      { id: "8.10.1", text: "Maîtrise prestataires externes — intégration SMQSE, impact, efficacité, DAC fournisseurs analysés — QM-QM-01 §4.1.3" },
+      { id: "8.11.1", text: "Prestation de service — plans qualité, mémo-méthode, SPQSE, ARDM, AQI chantiers T&AM — QM-QM-01 §4.1.2" },
+      { id: "8.12.1", text: "Libération des services — signature client carte de prestation, RPS, RVQ SSE — QM-QM-01 §4.1.2 / §4.1.5" },
+      { id: "8.13.1", text: "Éléments de sortie non conformes — SPQSE ouvert, traitement via LaurentyClaim, DAC/DAP — QM-QM-01 §4.1.6 / §5.1.1" }
+    ]
+  },
+  {
+    chapter: 9,
+    title: "Évaluation des performances",
+    ref: "QM-QM-01 §5.1",
+    process: ["QSE", "Operations", "HR", "Procurement"],
+    responsible: "QSEM / HOO / BD",
+    points: [
+      { id: "9.1.1", text: "Surveillance et mesure — RVQ, RPS, AQI, cartes de prestations encodées pour statistiques — QM-QM-01 §5.1.4" },
+      { id: "9.2.1", text: "Satisfaction client surveillée — RPS, LaurentyClaim, Gestat (EV-BAL), réunions stats — QM-QM-01 §4.1.5 / Plans QSE EV-BAL" },
+      { id: "9.3.1", text: "Analyse des données par QES + HOO → revue de direction locale et nationale — QM-QM-01 §5.1.4" },
+      { id: "9.4.1", text: "Programme AQI établi début d'année par QSEM (systèmes) et HOO/T&AM (chantiers), communiqué aux HOO — QM-QM-01 §5.1.2 / AQI SSE archivés 2 ans QES" },
+      { id: "9.4.2", text: "Rapport AQI rédigé, transmis via QES→QSEM→OD→CEO, actions correctives (SPQSE/DAP) annexées — QM-QM-01 §5.1.2" },
+      { id: "9.5.1", text: "Revue de direction nationale (min. 1x/an : CEO, COO, CD, OD, HQSE, HRD, CFO, QSEM) et locale (min. 1x/an par UTE) — QM-QM-01 §5.1.3" },
+      { id: "9.5.2", text: "Éléments de sortie RdD documentés — opportunités, changements SMQSE, besoins ressources — QM-QM-01 §5.1.3 (ordre du jour §5.1.3)" }
+    ]
+  },
+  {
+    chapter: 10,
+    title: "Améliorations",
+    ref: "QM-QM-01 §4.1.4 / §4.1.6 / §5.1.5",
+    process: ["Operations", "QSE"],
+    responsible: "HQSE / HOO / AM",
+    points: [
+      { id: "10.1.1", text: "Amélioration continue des services — résultats AQI, analyse données, AC/AP actualisent politique QSE — QM-QM-01 §5.1.5" },
+      { id: "10.2.1", text: "NC service — réaction, SPQSE ouvert, traitement AM/AS/HOO, LaurentyClaim — QM-QM-01 §4.1.6 / §5.1.1 / OP-SAL-01 §4.1" },
+      { id: "10.2.2", text: "NC — analyse causes et motifs plaintes réalisée annuellement (OD, QSEM, STM, HOO) — QM-QM-01 §5.1.1 / §4.1.6" },
+      { id: "10.2.3", text: "NC — efficacité AC vérifiée, R&O mis à jour, SMQSE modifié si nécessaire — QM-QM-01 §4.1.6 / §5.1.5" },
+      { id: "10.2.4", text: "NC — informations documentées conservées : SPQSE (2 ans QES), DAC (3 ans OS), DAP (3 ans BD) — QM-QM-01 §6.4" },
+      { id: "10.3.1", text: "Amélioration continue — DAP rédigées, analysées BD, suivies jusqu'à clôture — QM-QM-01 §5.1.5 / pilote HQSE §4.1.4" }
+    ]
+  }
+];
+
+const PROCESSES = ["HR", "Sales", "Operations", "QSE", "Procurement", "IT"];
+const UTE_LIST = ["Bruxelles", "Charleroi-Namur", "Liège", "Luxembourg", "Mons", "MSM", "Espaces Verts", "Balayage"];
+
+const RESPONSE_OPTIONS = [
+  { value: "CONFORME",  label: "Conforme",     short: "C",     color: "#22c55e" },
+  { value: "PARTIEL",   label: "Partiel",       short: "P",     color: "#f59e0b" },
+  { value: "NC",        label: "Non conforme",  short: "NC",    color: "#ef4444" },
+  { value: "NA",        label: "N/A",           short: "N/A",   color: "#475569" },
+  { value: "NOAUDIT",   label: "Non audité",    short: "N/Aud", color: "#334155" }
+];
+
+const SEVERITY_OPTIONS = [
+  { value: "", label: "— Gravité —" },
+  { value: "majeure",        label: "NC Majeure" },
+  { value: "mineure",        label: "NC Mineure" },
+  { value: "observation",    label: "Observation sensible" },
+  { value: "amelioration",   label: "Opportunité d'amélioration" },
+  { value: "bonne_pratique", label: "Bonne pratique" },
+  { value: "legal",          label: "Écart légal potentiel" }
+];
+
+const RISK_OPTIONS = [
+  { value: "", label: "— Domaine —" },
+  { value: "SST",           label: "SST" },
+  { value: "Environnement", label: "Environnement" },
+  { value: "Qualité",       label: "Qualité" },
+  { value: "Légal BE",      label: "Légal BE" },
+  { value: "Client",        label: "Client" },
+  { value: "Image",         label: "Image" },
+  { value: "Système",       label: "Système" }
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════════
+
+const norm = r => ({ OUI:"CONFORME", NON:"NC" }[r] || r || "");
+const isNC = r => { const v = norm(r); return v === "NC" || v === "PARTIEL"; };
+const isBlocking = sev => sev === "majeure" || sev === "legal";
+const criticality = (g, f) => Number(g||0)*Number(f||0);
+const critLabel = s => s>=16?"Critique":s>=10?"Prioritaire":s>=5?"Significatif":s>0?"Faible":"—";
+const scoreColor = p => p>=85?"#22c55e":p>=65?"#f59e0b":"#ef4444";
+const today = () => new Date().toISOString().split("T")[0];
+const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6).toUpperCase();
+const severityLabel = sev => SEVERITY_OPTIONS.find(o=>o.value===sev)?.label||"";
+
+function chInScope(ch,sel){
+  if(!sel||sel.length===0)return true;
+  const qseOnly=ch.process?.every(p=>p==="QSE");
+  return qseOnly||ch.process?.some(p=>sel.includes(p));
+}
+
+function getScore(audit) {
+  const sel=audit.processes||[];
+  let ok=0,nc=0,partial=0,na=0,noaudit=0,totalAudited=0,major=0,overdue=0,missingActions=0;
+  CHECKLIST_DATA.forEach(ch=>{
+    if(!chInScope(ch,sel))return;
+    ch.points.forEach(p=>{
+      const r=norm(audit.responses?.[p.id]);
+      if(!r)return;
+      if(r==="CONFORME"){ok++;totalAudited++;}
+      else if(r==="NC"){nc++;totalAudited++;}
+      else if(r==="PARTIEL"){partial++;totalAudited++;}
+      else if(r==="NA")na++;
+      else if(r==="NOAUDIT")noaudit++;
+      if(isNC(r)){
+        const sev=audit.severities?.[p.id]||"";
+        if(isBlocking(sev))major++;
+        const act=audit.actions?.[p.id],own=audit.actionOwners?.[p.id],due=audit.actionDueDates?.[p.id];
+        const sh=audit[`nc_${p.id}`]||{};
+        const closed=sh.statut==="Clôturée"||sh.statut==="Efficacité vérifiée";
+        if(!act||!own||!due)missingActions++;
+        if(due&&!closed&&new Date(due)<new Date(today()))overdue++;
+      }
+    });
+  });
+  const pct=totalAudited>0?Math.round((ok+partial*0.5)/totalAudited*100):0;
+  return {ok,nc,partial,na,noaudit,totalAudited,pct,major,overdue,missingActions};
+}
+
+function getChapterScore(audit,chapter){
+  let ok=0,nc=0,partial=0,na=0,noaudit=0,totalAudited=0;
+  chapter.points.forEach(p=>{
+    const r=norm(audit.responses?.[p.id]);
+    if(!r)return;
+    if(r==="CONFORME"){ok++;totalAudited++;}
+    else if(r==="NC"){nc++;totalAudited++;}
+    else if(r==="PARTIEL"){partial++;totalAudited++;}
+    else if(r==="NA")na++;
+    else if(r==="NOAUDIT")noaudit++;
+  });
+  const pct=totalAudited>0?Math.round((ok+partial*0.5)/totalAudited*100):0;
+  return {ok,nc,partial,na,noaudit,totalAudited,pct};
+}
+
+function getAllNCs(audit){
+  const sel=audit.processes||[];
+  const ncs=[];
+  CHECKLIST_DATA.forEach(ch=>{
+    if(!chInScope(ch,sel))return;
+    ch.points.forEach(p=>{
+    const r=norm(audit.responses?.[p.id]);
+    if(r==="NC"||r==="PARTIEL"){
+      const g=audit.gravity?.[p.id]||"",f=audit.frequency?.[p.id]||"";
+      ncs.push({
+        pointId:p.id,text:p.text,type:r,
+        comment:audit.comments?.[p.id]||"",
+        evidence:audit.evidence?.[p.id]||"",
+        sample:audit.samples?.[p.id]||"",
+        severity:audit.severities?.[p.id]||"",
+        risk:audit.risks?.[p.id]||"",
+        gravity:g,frequency:f,crit:criticality(g,f),
+        action:audit.actions?.[p.id]||"",
+        owner:audit.actionOwners?.[p.id]||"",
+        due:audit.actionDueDates?.[p.id]||"",
+        chapter:ch.chapter,chapterTitle:ch.title
+      });
+    }
+  });
+  });
+  return ncs;
+}
+
+function countOpenNCs(audits){
+  return audits.reduce((t,a)=>t+getAllNCs(a).filter(nc=>{
+    const d=a[`nc_${nc.pointId}`]||{};
+    return d.statut!=="Clôturée"&&d.statut!=="Efficacité vérifiée";
+  }).length,0);
+}
+
+function ircaLevel(pct){
+  if(pct>=90)return{label:"DISTINCTION",bg:"#0f2442",color:"#93c5fd",border:"#1d4ed8"};
+  if(pct>=80)return{label:"MERIT",bg:"#052e16",color:"#86efac",border:"#16a34a"};
+  if(pct>=65)return{label:"CONFORME",bg:"#422006",color:"#fde68a",border:"#d97706"};
+  return{label:"NON CONFORME",bg:"#450a0a",color:"#fca5a5",border:"#dc2626"};
+}
+
+function auditDecision(sc){
+  if(sc.totalAudited===0)return{label:"Non concluant",color:"#94a3b8",reason:"Aucun point audité."};
+  if(sc.major>0)return{label:"Défavorable",color:"#fca5a5",reason:"Au moins une NC majeure ou un écart légal potentiel identifié."};
+  if(sc.overdue>0)return{label:"Favorable sous réserve stricte",color:"#fde68a",reason:"Des actions correctives sont en retard."};
+  if(sc.missingActions>0)return{label:"Favorable sous réserve",color:"#fde68a",reason:"Des écarts sans action complète assignée (action + responsable + échéance)."};
+  if(sc.pct>=85)return{label:"Favorable",color:"#86efac",reason:"Aucune majeure, toutes actions assignées, score ≥ 85%."};
+  if(sc.pct>=70)return{label:"Favorable sous réserve",color:"#fde68a",reason:"Système partiellement maîtrisé. Fragilités à corriger."};
+  return{label:"Défavorable",color:"#fca5a5",reason:"Score inférieur au seuil minimal de maîtrise."};
+}
+
+function findPoint(id){
+  for(const ch of CHECKLIST_DATA){const p=ch.points.find(x=>x.id===id);if(p)return p;}
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════════════════
+
+const loadAudits=()=>{
+  try{
+    // Migrate from old key
+    const old=localStorage.getItem("smqse_v21");
+    const cur=localStorage.getItem("smqse_v22");
+    if(cur)return JSON.parse(cur);
+    if(old){const d=JSON.parse(old);localStorage.setItem("smqse_v22",old);return d;}
+    return[];
+  }catch{return[];}
+};
+const saveAudits=a=>localStorage.setItem("smqse_v22",JSON.stringify(a));
+
+// ═══════════════════════════════════════════════════════════════════
+// APP ROOT
+// ═══════════════════════════════════════════════════════════════════
+
+function App(){
+  const [audits,setAudits]=useState(loadAudits);
+  const [view,setView]=useState("dashboard");
+  const [activeAudit,setActiveAudit]=useState(null);
+  const [activeNC,setActiveNC]=useState(null);
+
+  useEffect(()=>saveAudits(audits),[audits]);
+
+  const createAudit=()=>{
+    const a={
+      id:genId(),
+      ref:`AUD-${new Date().getFullYear()}-${String(audits.length+1).padStart(3,"0")}`,
+      date:today(),ute:"",auditor:"",accompagnateur:"",processes:[],
+      objective:"Vérifier la conformité et l'efficacité du SMQSE sur base ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, VCA** et exigences légales belges applicables.",
+      scope:"",limits:"",
+      methods:"Revue documentaire (QM / OP / SP / WI), interviews encadrement, observation terrain, test d'échantillons.",
+      samplesPlanned:"",interviews:"",
+      responses:{},comments:{},evidence:{},samples:{},
+      severities:{},risks:{},gravity:{},frequency:{},
+      actions:{},actionOwners:{},actionDueDates:{},
+      closureProofs:{},effectiveness:{},verificationDates:{},
+      status:"draft",createdAt:new Date().toISOString()
+    };
+    setAudits(p=>[a,...p]);
+    setActiveAudit(a);
+    setView("audit");
+  };
+
+  const updateAudit=useCallback((id,changes)=>{
+    setAudits(p=>p.map(a=>a.id===id?{...a,...changes}:a));
+    setActiveAudit(p=>p?.id===id?{...p,...changes}:p);
+  },[]);
+
+  const deleteAudit=id=>{
+    if(!confirm("Supprimer cet audit définitivement ?"))return;
+    setAudits(p=>p.filter(a=>a.id!==id));
+    if(activeAudit?.id===id){setActiveAudit(null);setView("dashboard");}
+  };
+
+  const exportJSON=()=>{
+    const blob=new Blob([JSON.stringify(audits,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=`smqse-audits-${today()}.json`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importRef=useRef();
+  const importJSON=e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(Array.isArray(data)){
+          if(confirm(`Importer ${data.length} audit(s) ? Fusion sans écrasement.`)){
+            setAudits(p=>{const ids=new Set(p.map(a=>a.id));return[...p,...data.filter(a=>!ids.has(a.id))];});
+          }
+        }else alert("Format invalide.");
+      }catch{alert("Fichier JSON invalide.");}
+    };
+    reader.readAsText(file);
+    e.target.value="";
+  };
+
+  return(
+    <div style={{display:"flex",minHeight:"100vh",background:"#02040a",color:"#94a3b8",fontFamily:"'DM Sans',system-ui,sans-serif"}}>
+      <Sidebar view={view} setView={setView} activeAudit={activeAudit} onExport={exportJSON} onImport={()=>importRef.current?.click()}/>
+      <input ref={importRef} type="file" accept=".json" style={{display:"none"}} onChange={importJSON}/>
+      <main style={{flex:1,overflow:"auto",minWidth:0}}>
+        {view==="dashboard"&&<Dashboard audits={audits} onNew={createAudit} onOpen={a=>{setActiveAudit(a);setView("audit");}} onReport={a=>{setActiveAudit(a);setView("report");}} onDelete={deleteAudit}/>}
+        {view==="audit"&&activeAudit&&<AuditForm audit={activeAudit} onUpdate={updateAudit} onReport={()=>setView("report")} onBack={()=>setView("dashboard")}/>}
+        {view==="report"&&activeAudit&&<ReportView audit={activeAudit} onNC={id=>{setActiveNC(id);setView("nc");}} onBack={()=>setView("dashboard")}/>}
+        {view==="nc"&&activeAudit&&<NCSheet audit={activeAudit} ncId={activeNC} onUpdate={updateAudit} onBack={()=>setView("report")}/>}
+      </main>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════════════════
+
+function Sidebar({view,setView,activeAudit,onExport,onImport}){
+  const nav=[
+    {id:"dashboard",label:"Dashboard",icon:"▣"},
+    ...(activeAudit?[{id:"audit",label:"Checklist",icon:"☑"},{id:"report",label:"Rapport",icon:"◧"}]:[])
+  ];
+  return(
+    <aside style={{width:210,minWidth:210,background:"#070c18",borderRight:"1px solid #0f172a",display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"24px 20px 20px",borderBottom:"1px solid #0f172a"}}>
+        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#3b82f6",letterSpacing:3}}>SMQSE</div>
+        <div style={{fontSize:9,color:"#1e3a5f",letterSpacing:3,marginTop:2,fontFamily:"'JetBrains Mono',monospace"}}>AUDIT SYSTEM v2.2</div>
+        <div style={{fontSize:9,color:"#1e3a5f",marginTop:3,fontFamily:"'JetBrains Mono',monospace"}}>QM-QM-01 · OP-SAL-01</div>
+      </div>
+      <nav style={{marginTop:16,flex:1}}>
+        {nav.map(n=>(
+          <button key={n.id} onClick={()=>setView(n.id)} style={{
+            display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px 20px",
+            background:view===n.id?"#0d1829":"transparent",
+            border:"none",borderLeft:view===n.id?"2px solid #3b82f6":"2px solid transparent",
+            color:view===n.id?"#e2e8f0":"#475569",fontSize:13,cursor:"pointer",textAlign:"left"
+          }}>
+            <span style={{fontFamily:"monospace",fontSize:15}}>{n.icon}</span>{n.label}
+          </button>
+        ))}
+      </nav>
+      <div style={{padding:"16px 20px",borderTop:"1px solid #0f172a",display:"flex",flexDirection:"column",gap:8}}>
+        <button onClick={onExport} style={btnStyle("#0f172a","#3b82f6")}>↓ Exporter JSON</button>
+        <button onClick={onImport} style={btnStyle("#0f172a","#475569")}>↑ Importer JSON</button>
+        <div style={{fontSize:9,color:"#1e293b",marginTop:4,fontFamily:"'JetBrains Mono',monospace"}}>ISO 9001 · 14001 · 45001<br/>VCA** · Légal BE</div>
+      </div>
+    </aside>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════
+
+function Dashboard({audits,onNew,onOpen,onReport,onDelete}){
+  const [filterUTE,setFilterUTE]=useState("");
+  const [filterYear,setFilterYear]=useState("");
+  const [filterStatus,setFilterStatus]=useState("");
+
+  const years=useMemo(()=>[...new Set(audits.map(a=>a.date?.slice(0,4)).filter(Boolean))].sort((a,b)=>b-a),[audits]);
+  const filtered=useMemo(()=>audits.filter(a=>{
+    if(filterUTE&&a.ute!==filterUTE)return false;
+    if(filterYear&&(!a.date||!a.date.startsWith(filterYear)))return false;
+    if(filterStatus&&a.status!==filterStatus)return false;
+    return true;
+  }),[audits,filterUTE,filterYear,filterStatus]);
+
+  const completed=audits.filter(a=>a.status==="done");
+  const avgScore=completed.length?Math.round(completed.reduce((s,a)=>s+getScore(a).pct,0)/completed.length):null;
+  const openNCs=countOpenNCs(audits);
+
+  return(
+    <div style={{padding:32,maxWidth:1300,margin:"0 auto"}} className="fade-in">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
+        <div>
+          <h1 style={{fontSize:22,fontWeight:700,color:"#f1f5f9",margin:0}}>Dashboard</h1>
+          <p style={{fontSize:13,color:"#334155",margin:"4px 0 0"}}>Audits SMQSE Laurenty — QM-QM-01 / OP-SAL-01</p>
+        </div>
+        <button onClick={onNew} style={{...btnStyle("#1d4ed8","#93c5fd"),padding:"9px 20px",fontSize:13,fontWeight:600,borderRadius:8}}>+ Nouvel audit</button>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24}}>
+        {[
+          {label:"Audits clôturés",value:completed.length,accent:"#22c55e"},
+          {label:"En cours",value:audits.filter(a=>a.status!=="done").length,accent:"#f59e0b"},
+          {label:"Score moyen",value:avgScore!==null?`${avgScore}%`:"—",accent:"#3b82f6"},
+          {label:"NCs ouvertes",value:openNCs,accent:openNCs>0?"#ef4444":"#22c55e"}
+        ].map(k=>(
+          <div key={k.label} style={{background:"#070c18",borderRadius:10,padding:"18px 20px",border:"1px solid #0f172a",borderTop:`3px solid ${k.accent}`}}>
+            <div style={{fontSize:28,fontWeight:800,color:k.accent,fontFamily:"'JetBrains Mono',monospace"}}>{k.value}</div>
+            <div style={{fontSize:11,color:"#334155",marginTop:4}}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <select value={filterUTE} onChange={e=>setFilterUTE(e.target.value)} style={selectStyle}>
+          <option value="">Toutes les UTE</option>
+          {UTE_LIST.map(u=><option key={u} value={u}>{u}</option>)}
+        </select>
+        <select value={filterYear} onChange={e=>setFilterYear(e.target.value)} style={selectStyle}>
+          <option value="">Toutes les années</option>
+          {years.map(y=><option key={y} value={y}>{y}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={selectStyle}>
+          <option value="">Tous les statuts</option>
+          <option value="draft">Brouillon</option>
+          <option value="done">Clôturé</option>
+        </select>
+        {(filterUTE||filterYear||filterStatus)&&(
+          <button onClick={()=>{setFilterUTE("");setFilterYear("");setFilterStatus("");}} style={{...btnStyle("#0f172a","#ef4444"),fontSize:12,padding:"6px 12px",borderRadius:6}}>✕ Reset</button>
+        )}
+        <span style={{marginLeft:"auto",fontSize:12,color:"#334155",alignSelf:"center"}}>{filtered.length}/{audits.length} audit(s)</span>
+      </div>
+
+      {filtered.length===0?(
+        <div style={{textAlign:"center",padding:"60px 20px",color:"#334155"}}>
+          <div style={{fontSize:40,marginBottom:12}}>📂</div>
+          <p>{audits.length===0?"Aucun audit. Créez-en un pour commencer.":"Aucun résultat pour ces filtres."}</p>
+        </div>
+      ):(
+        <div style={{background:"#070c18",borderRadius:10,border:"1px solid #0f172a",overflow:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["Référence","Date","UTE","Auditeur","Processus","Score","NCs","Statut",""].map(h=>(
+              <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,color:"#334155",textTransform:"uppercase",letterSpacing:1,borderBottom:"1px solid #0f172a",fontWeight:600,fontFamily:"'JetBrains Mono',monospace"}}>{h}</th>
+            ))}</tr></thead>
+            <tbody>
+              {filtered.map(a=>{
+                const sc=getScore(a);
+                const ncs=getAllNCs(a);
+                const openCount=ncs.filter(nc=>{const d=a[`nc_${nc.pointId}`]||{};return d.statut!=="Clôturée"&&d.statut!=="Efficacité vérifiée";}).length;
+                return(
+                  <tr key={a.id} style={{borderBottom:"1px solid #0a0f1a"}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#0a1020"}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={{padding:"12px 14px",fontFamily:"'JetBrains Mono',monospace",fontWeight:600,color:"#e2e8f0",fontSize:12}}>{a.ref}</td>
+                    <td style={{padding:"12px 14px",fontSize:12,color:"#64748b"}}>{a.date||"—"}</td>
+                    <td style={{padding:"12px 14px",fontSize:12,color:"#94a3b8"}}>{a.ute||"—"}</td>
+                    <td style={{padding:"12px 14px",fontSize:12,color:"#94a3b8"}}>{a.auditor||"—"}</td>
+                    <td style={{padding:"12px 14px"}}>
+                      <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+                        {(a.processes||[]).map(p=><span key={p} style={{fontSize:10,background:"#0d1829",color:"#475569",padding:"2px 6px",borderRadius:3,border:"1px solid #0f172a"}}>{p}</span>)}
+                      </div>
+                    </td>
+                    <td style={{padding:"12px 14px"}}>{sc.totalAudited>0?<span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:scoreColor(sc.pct),fontSize:13}}>{sc.pct}%</span>:"—"}</td>
+                    <td style={{padding:"12px 14px"}}>{ncs.length>0&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:openCount>0?"#ef4444":"#22c55e"}}>{openCount}/{ncs.length}</span>}</td>
+                    <td style={{padding:"12px 14px"}}><span style={{fontSize:11,fontWeight:600,color:a.status==="done"?"#22c55e":"#f59e0b"}}>{a.status==="done"?"Clôturé":"Brouillon"}</span></td>
+                    <td style={{padding:"12px 14px"}}>
+                      <div style={{display:"flex",gap:6}}>
+                        <button style={{...btnStyle("#0f172a","#475569"),fontSize:11,padding:"4px 10px",borderRadius:5}} onClick={()=>onOpen(a)}>Éditer</button>
+                        <button style={{...btnStyle("#0f172a","#3b82f6"),fontSize:11,padding:"4px 10px",borderRadius:5}} onClick={()=>onReport(a)}>Rapport</button>
+                        <button style={{...btnStyle("#0f172a","#ef4444"),fontSize:11,padding:"4px 10px",borderRadius:5}} onClick={()=>onDelete(a.id)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AUDIT FORM
+// ═══════════════════════════════════════════════════════════════════
+
+function AuditForm({audit,onUpdate,onReport,onBack}){
+  const [expanded,setExpanded]=useState(new Set(CHECKLIST_DATA.map(c=>c.chapter)));
+  const set=(f,v)=>onUpdate(audit.id,{[f]:v});
+  const setMap=(m,id,v)=>onUpdate(audit.id,{[m]:{...(audit[m]||{}),[id]:v}});
+  const sc=getScore(audit);
+  const irca=ircaLevel(sc.pct);
+
+  return(
+    <div style={{padding:32,maxWidth:1200,margin:"0 auto"}} className="fade-in">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
+        <div>
+          <button onClick={onBack} style={{background:"none",border:"none",color:"#334155",cursor:"pointer",fontSize:12,padding:"0 0 6px",display:"block"}}>← Dashboard</button>
+          <h1 style={{fontSize:20,fontWeight:700,color:"#f1f5f9",margin:0,fontFamily:"'JetBrains Mono',monospace"}}>{audit.ref}</h1>
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>onUpdate(audit.id,{status:"done"})} style={{...btnStyle("#0f172a","#22c55e"),padding:"8px 16px",fontSize:12,borderRadius:7}}>✓ Clôturer</button>
+          <button onClick={onReport} style={{...btnStyle("#1d4ed8","#93c5fd"),padding:"8px 16px",fontSize:12,borderRadius:7,fontWeight:600}}>Rapport →</button>
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:16}}>
+          <FF label="Date" type="date" value={audit.date} onChange={v=>set("date",v)}/>
+          <FF label="UTE" type="select" value={audit.ute} onChange={v=>set("ute",v)} options={UTE_LIST.map(u=>({value:u,label:u}))}/>
+          <FF label="Auditeur" value={audit.auditor} onChange={v=>set("auditor",v)}/>
+          <FF label="Accompagnateur" value={audit.accompagnateur} onChange={v=>set("accompagnateur",v)}/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <label style={labelStyle}>Processus audités</label>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:6}}>
+            {PROCESSES.map(p=>(
+              <button key={p} onClick={()=>{const c=audit.processes||[];set("processes",c.includes(p)?c.filter(x=>x!==p):[...c,p]);}}
+                style={{padding:"5px 13px",borderRadius:5,border:"1px solid",fontSize:12,cursor:"pointer",
+                  background:audit.processes?.includes(p)?"#0d1829":"transparent",
+                  color:audit.processes?.includes(p)?"#93c5fd":"#475569",
+                  borderColor:audit.processes?.includes(p)?"#1d4ed8":"#1e293b"}}>
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+          <FF label="Objectif de l'audit" value={audit.objective} onChange={v=>set("objective",v)}/>
+          <FF label="Périmètre audité" value={audit.scope} onChange={v=>set("scope",v)}/>
+          <FF label="Limites / exclusions" value={audit.limits} onChange={v=>set("limits",v)}/>
+          <FF label="Méthodes utilisées" value={audit.methods} onChange={v=>set("methods",v)}/>
+          <FF label="Échantillons prévus" value={audit.samplesPlanned} onChange={v=>set("samplesPlanned",v)}/>
+          <FF label="Interviews / fonctions rencontrées" value={audit.interviews} onChange={v=>set("interviews",v)}/>
+        </div>
+      </div>
+
+      <div style={{...cardStyle,display:"flex",alignItems:"center",gap:24}}>
+        <div>
+          <div style={{fontSize:11,color:"#334155",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>SCORE GLOBAL</div>
+          <div style={{fontSize:36,fontWeight:800,color:scoreColor(sc.pct),fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{sc.totalAudited>0?`${sc.pct}%`:"—"}</div>
+          <div style={ircaBadgeStyle(irca)}>{irca.label}</div>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{height:6,background:"#0f172a",borderRadius:3,overflow:"hidden",marginBottom:10}}>
+            <div style={{height:"100%",borderRadius:3,width:`${sc.pct}%`,background:scoreColor(sc.pct),transition:"width 0.6s"}}/>
+          </div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+            {[["Conformes",sc.ok,"#22c55e"],["NC",sc.nc,"#ef4444"],["Partiels",sc.partial,"#f59e0b"],["Majeures",sc.major,"#fca5a5"],["Retards",sc.overdue,"#fb7185"]].map(([l,v,c])=>(
+              <span key={l} style={{fontSize:11,color:v>0?c:"#334155",fontFamily:"'JetBrains Mono',monospace"}}>{l}: <strong>{v}</strong></span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Process filter info banner */}
+      {(audit.processes||[]).length>0&&(
+        <div style={{background:"#070c18",border:"1px solid #0f172a",borderRadius:8,padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono',monospace"}}>FILTRE ACTIF</span>
+          <span style={{fontSize:12,color:"#64748b"}}>Affichage des chapitres couvrant : <strong style={{color:"#93c5fd"}}>{(audit.processes||[]).join(", ")}</strong></span>
+          <span style={{fontSize:11,color:"#334155",marginLeft:"auto"}}>Chapitres QSE/transversaux toujours visibles</span>
+        </div>
+      )}
+
+      {CHECKLIST_DATA.map(chapter=>{
+        // Filter chapters by selected processes. If none selected → show all.
+        // QSE process chapters are always shown (transversal).
+        const selectedProcs=audit.processes||[];
+        const isQSEOnly=chapter.process?.every(p=>p==="QSE");
+        const chapterVisible=selectedProcs.length===0||isQSEOnly||chapter.process?.some(p=>selectedProcs.includes(p));
+        if(!chapterVisible)return null;
+
+        const csc=getChapterScore(audit,chapter);
+        const isExp=expanded.has(chapter.chapter);
+        return(
+          <div key={chapter.chapter} style={cardStyle}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}
+              onClick={()=>setExpanded(p=>{const s=new Set(p);s.has(chapter.chapter)?s.delete(chapter.chapter):s.add(chapter.chapter);return s;})}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:34,height:34,background:"#0a1020",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#3b82f6",fontWeight:700,fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>§{chapter.chapter}</div>
+                <div>
+                  <div style={{fontWeight:600,color:"#e2e8f0",fontSize:13}}>{chapter.title}</div>
+                  <div style={{fontSize:10,color:"#334155",marginTop:1}}>{chapter.ref} · {chapter.process?.join(", ")} · Resp. {chapter.responsible}</div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                {csc.totalAudited>0&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:scoreColor(csc.pct)}}>{csc.pct}%</span>}
+                {csc.nc>0&&<span style={{color:"#ef4444",fontSize:12}}>✗{csc.nc}</span>}
+                {csc.partial>0&&<span style={{color:"#f59e0b",fontSize:12}}>◑{csc.partial}</span>}
+                <span style={{color:"#334155",fontSize:14}}>{isExp?"▲":"▼"}</span>
+              </div>
+            </div>
+
+            {isExp&&<div style={{marginTop:14}}>
+              {chapter.points.map((point,idx)=>{
+                const r=norm(audit.responses?.[point.id]||"");
+                const ncFlag=isNC(r);
+                const sev=audit.severities?.[point.id]||"";
+                const risk=audit.risks?.[point.id]||"";
+                const g=audit.gravity?.[point.id]||"";
+                const f=audit.frequency?.[point.id]||"";
+                const crit=criticality(g,f);
+                const act=audit.actions?.[point.id]||"";
+                const own=audit.actionOwners?.[point.id]||"";
+                const due=audit.actionDueDates?.[point.id]||"";
+                const missingAct=ncFlag&&(!act||!own||!due);
+                return(
+                  <div key={point.id} style={{
+                    padding:"12px 0",
+                    borderTop:idx>0?"1px solid #0a0f1a":"none",
+                    ...(ncFlag?{background:"#07090f",borderRadius:8,padding:"12px",margin:"4px 0"}:{}),
+                    ...(missingAct?{boxShadow:"inset 3px 0 0 #ef4444"}:{})
+                  }}>
+                    <div style={{display:"flex",gap:10}}>
+                      <span style={{fontSize:10,color:"#1e293b",minWidth:46,paddingTop:2,fontFamily:"'JetBrains Mono',monospace"}}>{point.id}</span>
+                      <span style={{fontSize:13,color:"#94a3b8",flex:1,lineHeight:1.6}}>{point.text}</span>
+                    </div>
+                    <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
+                      {RESPONSE_OPTIONS.map(opt=>(
+                        <button key={opt.value} onClick={()=>setMap("responses",point.id,r===opt.value?"":opt.value)}
+                          style={{padding:"4px 11px",borderRadius:5,border:`1px solid ${opt.color}`,fontSize:11,cursor:"pointer",fontWeight:600,
+                            background:r===opt.value?opt.color:"transparent",color:r===opt.value?"#fff":opt.color}}>
+                          {opt.short}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginTop:8}}>
+                      <input style={inlineInputStyle} placeholder="Preuve objective : document, version, date, interview..."
+                        value={audit.evidence?.[point.id]||""} onChange={e=>setMap("evidence",point.id,e.target.value)}/>
+                      <input style={inlineInputStyle} placeholder="Échantillon testé : dossiers, chantiers, PV..."
+                        value={audit.samples?.[point.id]||""} onChange={e=>setMap("samples",point.id,e.target.value)}/>
+                    </div>
+                    {ncFlag&&(<>
+                      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:7,marginTop:7}}>
+                        <input style={inlineInputStyle} placeholder="Constat / écart factuel..."
+                          value={audit.comments?.[point.id]||""} onChange={e=>setMap("comments",point.id,e.target.value)}/>
+                        <select style={inlineInputStyle} value={sev} onChange={e=>setMap("severities",point.id,e.target.value)}>
+                          {SEVERITY_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                        <select style={inlineInputStyle} value={risk} onChange={e=>setMap("risks",point.id,e.target.value)}>
+                          {RISK_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:7,marginTop:7,alignItems:"center"}}>
+                        <select style={inlineInputStyle} value={g} onChange={e=>setMap("gravity",point.id,e.target.value)}>
+                          <option value="">Gravité</option>
+                          {[1,2,3,4,5].map(n=><option key={n} value={n}>G {n}</option>)}
+                        </select>
+                        <select style={inlineInputStyle} value={f} onChange={e=>setMap("frequency",point.id,e.target.value)}>
+                          <option value="">Fréquence</option>
+                          {[1,2,3,4,5].map(n=><option key={n} value={n}>F {n}</option>)}
+                        </select>
+                        <span style={{fontSize:11,padding:"5px 10px",background:"#0a0f1a",borderRadius:5,color:crit>=16?"#fca5a5":crit>=10?"#fde68a":"#475569",fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap"}}>
+                          {crit>0?`C=${crit} · ${critLabel(crit)}`:"—"}
+                        </span>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:7,marginTop:7}}>
+                        <input style={inlineInputStyle} placeholder="Action corrective demandée..."
+                          value={act} onChange={e=>setMap("actions",point.id,e.target.value)}/>
+                        <input style={inlineInputStyle} placeholder="Responsable (ex: HOO, QSEM)"
+                          value={own} onChange={e=>setMap("actionOwners",point.id,e.target.value)}/>
+                        <input style={inlineInputStyle} type="date" value={due} onChange={e=>setMap("actionDueDates",point.id,e.target.value)}/>
+                      </div>
+                      {missingAct&&<div style={{marginTop:6,fontSize:11,color:"#fca5a5",fontWeight:600}}>⚠ Action, responsable et échéance obligatoires.</div>}
+                    </>)}
+                  </div>
+                );
+              })}
+            </div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REPORT VIEW
+// ═══════════════════════════════════════════════════════════════════
+
+function ReportView({audit,onNC,onBack}){
+  const sc=getScore(audit);
+  const ncs=getAllNCs(audit);
+  const irca=ircaLevel(sc.pct);
+  const decision=auditDecision(sc);
+
+  return(
+    <div style={{padding:32,maxWidth:1200,margin:"0 auto"}} className="fade-in">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
+        <div>
+          <button onClick={onBack} style={{background:"none",border:"none",color:"#334155",cursor:"pointer",fontSize:12,padding:"0 0 6px",display:"block"}}>← Dashboard</button>
+          <h1 style={{fontSize:20,fontWeight:700,color:"#f1f5f9",margin:0}}>Rapport — <span style={{fontFamily:"'JetBrains Mono',monospace"}}>{audit.ref}</span></h1>
+        </div>
+        <button onClick={()=>window.print()} style={{...btnStyle("#0f172a","#475569"),padding:"8px 16px",fontSize:12,borderRadius:7}} className="no-print">🖨 Imprimer</button>
+      </div>
+
+      <div style={{...cardStyle,borderColor:"#1e3a5f",borderWidth:2}}>
+        <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:20}}>
+          <div>
+            <div style={{fontSize:9,color:"#334155",letterSpacing:4,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace"}}>Rapport d'Audit Système SMQSE</div>
+            <div style={{fontSize:26,fontWeight:800,color:"#e2e8f0",fontFamily:"'JetBrains Mono',monospace",marginTop:4}}>{audit.ref}</div>
+            <div style={{fontSize:11,color:"#334155",marginTop:2}}>FORM-QUAL-07 · QM-QM-01 · OP-SAL-01 · ISO 9001/14001/45001 · VCA** · Légal BE</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <InfoRow label="Date" value={audit.date}/><InfoRow label="UTE" value={audit.ute}/>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginTop:20}}>
+          <InfoRow label="Auditeur" value={audit.auditor}/>
+          <InfoRow label="Accompagnateur" value={audit.accompagnateur}/>
+          <InfoRow label="Processus audités" value={(audit.processes||[]).join(", ")}/>
+          <InfoRow label="Objectif" value={audit.objective}/>
+          <InfoRow label="Périmètre" value={audit.scope}/>
+          <InfoRow label="Méthodes" value={audit.methods}/>
+          <InfoRow label="Limites" value={audit.limits}/>
+          <InfoRow label="Échantillons" value={audit.samplesPlanned}/>
+          <InfoRow label="Interviews" value={audit.interviews}/>
+        </div>
+      </div>
+
+      <div style={{...cardStyle,display:"flex",alignItems:"center",gap:32}}>
+        <div style={{textAlign:"center",minWidth:160}}>
+          <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace"}}>Score Global</div>
+          <div style={{fontSize:52,fontWeight:900,color:scoreColor(sc.pct),fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{sc.pct}%</div>
+          <div style={ircaBadgeStyle(irca)}>{irca.label}</div>
+        </div>
+        <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+          {[["Conformes",sc.ok,"#22c55e"],["Non-conformités",sc.nc,"#ef4444"],["Partiels",sc.partial,"#f59e0b"],["Audités",sc.totalAudited,"#3b82f6"],["Majeures",sc.major,"#fca5a5"],["En retard",sc.overdue,"#fb7185"]].map(([l,v,c])=>(
+            <div key={l} style={{background:"#0a0f1a",borderRadius:7,padding:"10px 14px"}}>
+              <div style={{fontSize:20,fontWeight:700,color:c,fontFamily:"'JetBrains Mono',monospace"}}>{v}</div>
+              <div style={{fontSize:10,color:"#334155",marginTop:2}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{...cardStyle,borderColor:sc.major>0||sc.overdue>0?"#7f1d1d":"#14532d"}}>
+        <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:8}}>Avis d'audit</div>
+        <div style={{fontSize:18,fontWeight:800,color:decision.color,marginBottom:6}}>{decision.label}</div>
+        <p style={{fontSize:13,color:"#64748b",lineHeight:1.7,margin:0}}>{decision.reason}</p>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:14}}>Synthèse par chapitre</div>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>{["§","Chapitre","Réf. doc","C","NC","P","N/A","N/Aud","Score"].map(h=>(
+            <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:9,color:"#334155",textTransform:"uppercase",borderBottom:"1px solid #0f172a",letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{h}</th>
+          ))}</tr></thead>
+          <tbody>
+            {CHECKLIST_DATA.map(ch=>{
+              const selectedProcs=audit.processes||[];
+              const isQSEOnly=ch.process?.every(p=>p==="QSE");
+              const inScope=selectedProcs.length===0||isQSEOnly||ch.process?.some(p=>selectedProcs.includes(p));
+              const csc=getChapterScore(audit,ch);
+              return(
+                <tr key={ch.chapter} style={{borderBottom:"1px solid #0a0f1a",opacity:inScope?1:0.35}}>
+                  <td style={{padding:"9px 10px",fontFamily:"'JetBrains Mono',monospace",color:"#334155",fontSize:11}}>§{ch.chapter}</td>
+                  <td style={{padding:"9px 10px",color:inScope?"#94a3b8":"#334155",fontSize:12}}>{ch.title}{!inScope&&<span style={{marginLeft:8,fontSize:9,color:"#334155",fontFamily:"'JetBrains Mono',monospace"}}>HORS PÉRIMÈTRE</span>}</td>
+                  <td style={{padding:"9px 10px",color:"#334155",fontSize:10,fontFamily:"'JetBrains Mono',monospace"}}>{ch.ref}</td>
+                  <td style={{padding:"9px 10px",color:"#22c55e",fontSize:12,textAlign:"center"}}>{inScope?csc.ok:"—"}</td>
+                  <td style={{padding:"9px 10px",color:"#ef4444",fontSize:12,textAlign:"center",fontWeight:csc.nc>0?700:400}}>{inScope?csc.nc:"—"}</td>
+                  <td style={{padding:"9px 10px",color:"#f59e0b",fontSize:12,textAlign:"center"}}>{inScope?csc.partial:"—"}</td>
+                  <td style={{padding:"9px 10px",color:"#475569",fontSize:12,textAlign:"center"}}>{inScope?csc.na:"—"}</td>
+                  <td style={{padding:"9px 10px",color:"#334155",fontSize:12,textAlign:"center"}}>{inScope?csc.noaudit:"—"}</td>
+                  <td style={{padding:"9px 10px"}}>{inScope?(csc.totalAudited>0?<span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:scoreColor(csc.pct),fontSize:12}}>{csc.pct}%</span>:"—"):<span style={{fontSize:10,color:"#334155"}}>exclu</span>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {ncs.length>0&&(
+        <div style={cardStyle}>
+          <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:14}}>Non-conformités & Écarts ({ncs.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {ncs.map(nc=>{
+              const ncData=audit[`nc_${nc.pointId}`]||{};
+              const closed=ncData.statut==="Clôturée"||ncData.statut==="Efficacité vérifiée";
+              const late=nc.due&&!closed&&new Date(nc.due)<new Date(today());
+              return(
+                <div key={nc.pointId} style={{background:"#07090f",borderRadius:8,padding:14,border:"1px solid #0f172a"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:7,flexWrap:"wrap"}}>
+                        <span style={{fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:4,color:"#fff",textTransform:"uppercase",background:norm(nc.type)==="NC"?"#dc2626":"#d97706"}}>{norm(nc.type)==="NC"?"NC":"Partiel"}</span>
+                        {nc.severity&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,color:"#fff",background:isBlocking(nc.severity)?"#991b1b":"#1e293b"}}>{severityLabel(nc.severity)}</span>}
+                        {nc.risk&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,color:"#93c5fd",background:"#0d1829",border:"1px solid #1e3a5f"}}>{nc.risk}</span>}
+                        {nc.crit>0&&<span style={{fontSize:10,fontFamily:"'JetBrains Mono',monospace",color:nc.crit>=16?"#fca5a5":nc.crit>=10?"#fde68a":"#475569"}}>C={nc.crit} {critLabel(nc.crit)}</span>}
+                        <span style={{fontSize:10,color:"#1e293b",fontFamily:"'JetBrains Mono',monospace"}}>{nc.pointId} · §{nc.chapter}</span>
+                      </div>
+                      <div style={{fontSize:12,color:"#94a3b8",marginBottom:4}}>{nc.text}</div>
+                      {nc.evidence&&<div style={{fontSize:11,color:"#475569",marginTop:3}}>📄 {nc.evidence}</div>}
+                      {nc.sample&&<div style={{fontSize:11,color:"#475569"}}>🔍 {nc.sample}</div>}
+                      {nc.comment&&<div style={{fontSize:12,color:"#64748b",fontStyle:"italic",marginTop:4}}>↳ {nc.comment}</div>}
+                      {nc.action&&<div style={{marginTop:7,padding:"7px 10px",background:"#0a0f1a",borderRadius:6,fontSize:11,color:"#94a3b8",border:"1px solid #0f172a"}}>Action : {nc.action} · Resp. <strong>{nc.owner||"—"}</strong> · Échéance <span style={{color:late?"#fca5a5":"#94a3b8"}}>{nc.due||"—"}</span></div>}
+                    </div>
+                    <button onClick={()=>onNC(nc.pointId)} style={{...btnStyle("#0f172a","#475569"),fontSize:11,padding:"5px 10px",borderRadius:5,marginLeft:14,whiteSpace:"nowrap"}} className="no-print">Fiche AC →</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {ncs.length>0&&(
+        <div style={cardStyle}>
+          <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:14}}>Registre des actions correctives</div>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["ID","Domaine","Gravité","C","Action","Responsable","Échéance","Statut"].map(h=>(
+              <th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:9,color:"#334155",textTransform:"uppercase",borderBottom:"1px solid #0f172a",letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{h}</th>
+            ))}</tr></thead>
+            <tbody>
+              {ncs.map(nc=>{
+                const ncData=audit[`nc_${nc.pointId}`]||{};
+                const closed=ncData.statut==="Clôturée"||ncData.statut==="Efficacité vérifiée";
+                const late=nc.due&&!closed&&new Date(nc.due)<new Date(today());
+                return(
+                  <tr key={nc.pointId} style={{borderBottom:"1px solid #0a0f1a"}}>
+                    <td style={{padding:"9px 12px",fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#475569"}}>{nc.pointId}</td>
+                    <td style={{padding:"9px 12px",fontSize:11,color:"#94a3b8"}}>{nc.risk||"—"}</td>
+                    <td style={{padding:"9px 12px",fontSize:11,color:isBlocking(nc.severity)?"#fca5a5":"#94a3b8"}}>{severityLabel(nc.severity)||"—"}</td>
+                    <td style={{padding:"9px 12px",fontSize:11,color:nc.crit>=16?"#fca5a5":nc.crit>=10?"#fde68a":"#475569",fontFamily:"'JetBrains Mono',monospace"}}>{nc.crit||"—"}</td>
+                    <td style={{padding:"9px 12px",fontSize:11,color:"#94a3b8"}}>{nc.action||<span style={{color:"#334155",fontStyle:"italic"}}>Non définie</span>}</td>
+                    <td style={{padding:"9px 12px",fontSize:11,color:"#94a3b8"}}>{nc.owner||"—"}</td>
+                    <td style={{padding:"9px 12px",fontSize:11,color:late?"#fca5a5":"#94a3b8",fontFamily:"'JetBrains Mono',monospace"}}>{nc.due||"—"}</td>
+                    <td style={{padding:"9px 12px",fontSize:11}}><span style={{color:closed?"#22c55e":late?"#ef4444":"#f59e0b",fontWeight:600}}>{closed?"Clôturée":late?"En retard":"Ouverte"}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={cardStyle}>
+        <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:14}}>Signatures</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+          {["QSEM","HOO","QSEM Groupe","HQSE"].map(r=>(
+            <div key={r} style={{border:"1px solid #0f172a",borderRadius:8,padding:14,minHeight:90}}>
+              <div style={{fontSize:11,color:"#475569",marginBottom:50}}>{r}</div>
+              <div style={{borderTop:"1px solid #1e293b",paddingTop:6,fontSize:10,color:"#1e293b"}}>Date / Signature</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NC SHEET
+// ═══════════════════════════════════════════════════════════════════
+
+function NCSheet({audit,ncId,onUpdate,onBack}){
+  const key=`nc_${ncId}`;
+  const data=audit[key]||{};
+  const point=findPoint(ncId);
+  const r=norm(audit.responses?.[ncId]||"NC");
+  const set=(f,v)=>onUpdate(audit.id,{[key]:{...data,[f]:v}});
+  const setMap=(m,v)=>onUpdate(audit.id,{[m]:{...(audit[m]||{}),[ncId]:v}});
+
+  return(
+    <div style={{padding:32,maxWidth:1100,margin:"0 auto"}} className="fade-in">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
+        <div>
+          <button onClick={onBack} style={{background:"none",border:"none",color:"#334155",cursor:"pointer",fontSize:12,padding:"0 0 6px",display:"block"}}>← Rapport</button>
+          <h1 style={{fontSize:20,fontWeight:700,color:"#f1f5f9",margin:0}}>Fiche d'action corrective</h1>
+        </div>
+        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#f59e0b",background:"#1c1000",padding:"6px 14px",borderRadius:6,border:"1px solid #713f12"}}>NC-{audit.ref}-{ncId}</div>
+      </div>
+
+      <div style={{...cardStyle,borderColor:r==="NC"?"#ef4444":"#f59e0b",borderWidth:2}}>
+        <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
+          <span style={{fontSize:11,fontWeight:800,padding:"3px 12px",borderRadius:4,color:"#fff",background:r==="NC"?"#dc2626":"#d97706",textTransform:"uppercase",letterSpacing:1}}>{r==="NC"?"Non-conformité":"Conformité partielle"}</span>
+          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#475569"}}>{ncId}</span>
+        </div>
+        <div style={{fontSize:13,color:"#94a3b8",lineHeight:1.7}}>{point?.text||"—"}</div>
+        {audit.comments?.[ncId]&&<div style={{marginTop:10,padding:"10px 14px",background:"#07090f",borderRadius:6,fontSize:12,color:"#64748b"}}><strong style={{color:"#475569"}}>Écart constaté :</strong> {audit.comments[ncId]}</div>}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <div style={cardStyle}>
+          <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:14}}>Analyse</div>
+          <NF label="Description de l'écart" value={data.description||audit.comments?.[ncId]||""} onChange={v=>{set("description",v);setMap("comments",v);}} multiline/>
+          <NF label="Preuve objective" value={audit.evidence?.[ncId]||""} onChange={v=>setMap("evidence",v)} multiline/>
+          <NF label="Échantillon testé" value={audit.samples?.[ncId]||""} onChange={v=>setMap("samples",v)}/>
+          <NF label="Cause racine identifiée" value={data.cause||""} onChange={v=>set("cause",v)} multiline/>
+          <NF label="Gravité / Typologie" type="select" value={audit.severities?.[ncId]||""} onChange={v=>setMap("severities",v)} options={SEVERITY_OPTIONS}/>
+          <NF label="Domaine de risque" type="select" value={audit.risks?.[ncId]||""} onChange={v=>setMap("risks",v)} options={RISK_OPTIONS}/>
+        </div>
+        <div style={cardStyle}>
+          <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:14}}>Action corrective</div>
+          <NF label="Action immédiate (correction)" value={data.immediate||""} onChange={v=>set("immediate",v)} multiline/>
+          <NF label="Action corrective long terme" value={audit.actions?.[ncId]||data.corrective||""} onChange={v=>{set("corrective",v);setMap("actions",v);}} multiline/>
+          <NF label="Responsable AC" value={audit.actionOwners?.[ncId]||data.responsable||""} onChange={v=>{set("responsable",v);setMap("actionOwners",v);}}/>
+          <NF label="Délai de réalisation" type="date" value={audit.actionDueDates?.[ncId]||data.delai||""} onChange={v=>{set("delai",v);setMap("actionDueDates",v);}}/>
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:14}}>Suivi & Clôture</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+          <NF label="Actions prises" value={data.actionsPrises||""} onChange={v=>set("actionsPrises",v)} multiline/>
+          <NF label="Preuve de clôture" value={audit.closureProofs?.[ncId]||""} onChange={v=>setMap("closureProofs",v)} multiline/>
+          <NF label="Résultat vérification efficacité" value={audit.effectiveness?.[ncId]||""} onChange={v=>setMap("effectiveness",v)} multiline/>
+          <NF label="Clôturée le" type="date" value={data.clotureLe||""} onChange={v=>set("clotureLe",v)}/>
+          <NF label="Vérification efficacité le" type="date" value={audit.verificationDates?.[ncId]||""} onChange={v=>setMap("verificationDates",v)}/>
+          <NF label="Vérifiée par" value={data.verificateur||""} onChange={v=>set("verificateur",v)}/>
+        </div>
+        <div style={{marginTop:16}}>
+          <label style={labelStyle}>Statut</label>
+          <div style={{display:"flex",gap:8,marginTop:7}}>
+            {["Ouverte","En cours","Clôturée","Efficacité vérifiée"].map(s=>(
+              <button key={s} onClick={()=>set("statut",s)} style={{padding:"6px 14px",borderRadius:6,border:"1px solid",
+                background:data.statut===s?"#0d1829":"transparent",
+                color:data.statut===s?"#93c5fd":"#475569",
+                borderColor:data.statut===s?"#1d4ed8":"#1e293b",
+                fontSize:12,cursor:"pointer"}}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {data.statut&&<div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:data.statut==="Clôturée"||data.statut==="Efficacité vérifiée"?"#22c55e":"#f59e0b"}}/>
+            <span style={{fontSize:12,color:"#64748b"}}>{data.statut}</span>
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STYLE HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+const cardStyle={background:"#070c18",borderRadius:10,padding:20,border:"1px solid #0f172a",marginBottom:16};
+const labelStyle={display:"block",fontSize:10,color:"#334155",textTransform:"uppercase",letterSpacing:1,marginBottom:5,fontFamily:"'JetBrains Mono',monospace"};
+const inlineInputStyle={width:"100%",background:"#02040a",border:"1px solid #0f172a",borderRadius:5,padding:"6px 9px",color:"#94a3b8",fontSize:11};
+const selectStyle={background:"#070c18",border:"1px solid #0f172a",borderRadius:6,padding:"7px 11px",color:"#64748b",fontSize:12};
+const btnStyle=(bg,c)=>({background:bg,border:`1px solid ${c}20`,borderRadius:6,color:c,cursor:"pointer",fontSize:12,padding:"6px 12px"});
+const ircaBadgeStyle=irca=>({display:"inline-block",padding:"3px 12px",borderRadius:20,fontSize:10,fontWeight:800,letterSpacing:2,fontFamily:"'JetBrains Mono',monospace",background:irca.bg,color:irca.color,border:`1px solid ${irca.border}`,marginTop:6});
+
+function FF({label,value,onChange,type="text",options=[]}){
+  return(
+    <div>
+      <label style={labelStyle}>{label}</label>
+      {type==="select"?(
+        <select style={{...inlineInputStyle}} value={value||""} onChange={e=>onChange(e.target.value)}>
+          <option value="">—</option>
+          {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      ):(
+        <input style={inlineInputStyle} type={type} value={value||""} onChange={e=>onChange(e.target.value)}/>
+      )}
+    </div>
+  );
+}
+
+function NF({label,value,onChange,type="text",options=[],multiline=false}){
+  return(
+    <div style={{marginBottom:12}}>
+      <label style={labelStyle}>{label}</label>
+      {type==="select"?(
+        <select style={{...inlineInputStyle,width:"100%"}} value={value||""} onChange={e=>onChange(e.target.value)}>
+          {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      ):multiline?(
+        <textarea style={{...inlineInputStyle,height:72,resize:"vertical",display:"block"}} value={value||""} onChange={e=>onChange(e.target.value)}/>
+      ):(
+        <input style={inlineInputStyle} type={type} value={value||""} onChange={e=>onChange(e.target.value)}/>
+      )}
+    </div>
+  );
+}
+
+function InfoRow({label,value}){
+  return(
+    <div style={{marginBottom:6}}>
+      <div style={{fontSize:9,color:"#1e293b",textTransform:"uppercase",letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{label}</div>
+      <div style={{fontSize:13,color:"#94a3b8",marginTop:1}}>{value||"—"}</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>
